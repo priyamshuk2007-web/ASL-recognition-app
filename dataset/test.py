@@ -20,7 +20,9 @@ def normalize_landmarks(hand_landmarks):
 options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path='hand_landmarker.task'),
     running_mode=VisionRunningMode.IMAGE,
-    num_hands=1)
+    num_hands=1,
+    min_hand_detection_confidence=0.3,
+    min_hand_presence_confidence=0.3)
 landmarker = HandLandmarker.create_from_options(options)
 
 model = joblib.load('asl_letter_model.pkl')
@@ -49,8 +51,38 @@ for filename in os.listdir(test_folder):
         continue
 
     normalized = normalize_landmarks(result.hand_landmarks[0])
-    prediction = model.predict([normalized])[0]
+    def extract_geometric_features(X_63):
+        """
+        Takes (N, 63) normalized landmarks and appends 14 relational distance features
+        to separate M/N/S/T/A/E, C/O, and U/V. Returns (N, 77).
+        """
+        pts = X_63.reshape(-1, 21, 3)
+    
+        def dist(i, j):
+            return np.linalg.norm(pts[:, i] - pts[:, j], axis=1, keepdims=True)
 
+        # 1. Thumb tip (4) to fingertips (8, 12, 16, 20) -> fixes C vs O and E
+        thumb_to_tips = [dist(4, idx) for idx in [8, 12, 16, 20]]
+    
+        # 2. Thumb tip (4) to middle knuckles / PIP joints (6, 10, 14, 18) -> fixes M, N, S, T, A
+        thumb_to_pips = [dist(4, idx) for idx in [6, 10, 14, 18]]
+    
+        # 3. Adjacent fingertip spread (8-12, 12-16) -> fixes U vs V vs W
+        finger_spread = [dist(8, 12), dist(12, 16)]
+    
+        # 4. Finger curl ratios: tip-to-wrist(0) / MCP-to-wrist(0) for 4 fingers
+        curl_ratios = []
+        for tip, mcp in [(8, 5), (12, 9), (16, 13), (20, 17)]:
+            ratio = dist(tip, 0) / (dist(mcp, 0) + 1e-6)
+            curl_ratios.append(ratio)
+
+        extra = np.hstack(thumb_to_tips + thumb_to_pips + finger_spread + curl_ratios)
+        return np.hstack([X_63, extra])
+
+
+    features = extract_geometric_features(normalized.reshape(1, 63))
+
+    prediction = model.predict(features)[0]
     total += 1
     if prediction == true_label:
         correct += 1

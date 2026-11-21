@@ -20,13 +20,13 @@ def normalize_landmarks(hand_landmarks):
 options = HandLandmarkerOptions(
     base_options=BaseOptions(model_asset_path='hand_landmarker.task'),
     running_mode=VisionRunningMode.IMAGE,
-    num_hands=1,min_hand_detection_confidence= 0.7,
-    min_hand_presence_confidence=0.8)
+    num_hands=1,min_hand_detection_confidence= 0.5,
+    min_hand_presence_confidence=0.5)
 
 landmarker = HandLandmarker.create_from_options(options)
 
 dataset_path = 'asl_alphabet_train/asl_alphabet_train'  # folder containing A/, B/, C/ ... subfolders
-images_per_letter = 400
+images_per_letter = 3000
 letters = [chr(c) for c in range(ord('A'), ord('Z')+1) if chr(c) not in ('J', 'Z')]
 
 output_file = open('landmarks.csv', 'w', newline='')
