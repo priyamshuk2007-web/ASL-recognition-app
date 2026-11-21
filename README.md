@@ -6,11 +6,13 @@ The project combines Python-based hand landmark detection and machine learning w
 
 ## What It Does
 
-- Recognises ASL alphabet letters using a webcam.
-- Builds words by combining recognised letters.
-- Adds a space between words when the left hand is raised into the camera frame for approximately half a second.
-- Uses the right hand for letter recognition.
-- Ignores predictions that fall below a confidence threshold.
+- Recognises ASL alphabet letters using a webcam in a single, unified desktop UI.
+- Builds words and sentences in real time by confirming each letter when the hand leaves the camera frame.
+- Embeds the live camera video with hand landmark skeleton overlay directly in the window.
+- Displays live letter prediction, dynamic confidence progress bar, and leading vote status.
+- Adds a space between words when both hands are raised simultaneously.
+- Supports either left or right hand signing (left hand landmarks are automatically mirrored).
+- Provides instant editing controls (Backspace, Clear, Copy to clipboard) and keyboard shortcuts.
 
 The project was built with the goal of exploring how computer vision and machine learning could support communication for Deaf and non-verbal people.
 
@@ -19,12 +21,12 @@ The project was built with the goal of exploring how computer vision and machine
 The application uses a combination of Python and Java.
 
 1. **Hand Detection:** A Python script uses MediaPipe to detect 21 landmarks on each hand.
-2. **Landmark Normalisation:** The landmarks are normalised relative to the wrist and scaled according to hand size.
-3. **Communication:** The normalised landmark coordinates are sent to the Java application through a local socket connection on port `5000`.
-4. **Classification:** A Random Forest classifier, trained using scikit-learn, predicts the corresponding ASL letter.
+2. **Landmark Normalisation & Feature Extraction:** The landmarks are normalised relative to the wrist and scaled by hand size, plus 14 geometric distance and fingertip spread features are calculated (77 features total).
+3. **Communication:** The normalised features and compressed video frames are streamed to the Java application through a local socket connection on port `5000`.
+4. **Classification:** A Multi-Layer Perceptron (MLP) neural network, trained using scikit-learn, predicts the corresponding ASL letter.
 5. **ONNX Integration:** The trained classifier is exported to ONNX format and loaded in Java using ONNX Runtime.
 6. **Letter Selection:** Java collects predictions while the hand remains in the camera frame. When the hand leaves, the application selects the winning prediction and appends the letter if its confidence is above the threshold.
-7. **Word Separation:** Raising the left hand for approximately half a second inserts a space.
+7. **Word Separation:** Raising both hands simultaneously for approximately half a second inserts a space.
 
 ## Project Structure
 
@@ -55,7 +57,7 @@ ASL-Recognition-App/
 │
 └── dataset/
     ├── asl_letter_model.onnx
-    ├── classifer.py
+    ├── classifier.py
     ├── hand_landmarker.task
     ├── landmarks.csv
     ├── model_export.py
@@ -75,7 +77,7 @@ ASL-Recognition-App/
 | MediaPipe | Hand landmark detection |
 | Python | Landmark extraction and model training |
 | NumPy | Numerical operations |
-| scikit-learn | Random Forest classification |
+| scikit-learn | Multi-Layer Perceptron (MLP) classification |
 | skl2onnx | Exporting the classifier to ONNX |
 | ONNX Runtime | Running the trained model in Java |
 
@@ -126,7 +128,7 @@ Make sure you have the following installed:
 Install the required Python packages:
 
 ```bash
-py -m pip install mediapipe opencv-python numpy scikit-learn skl2onnx
+py -m pip install mediapipe opencv-python numpy scikit-learn skl2onnx pandas joblib onnxruntime
 ```
 
 You also need the MediaPipe `hand_landmarker.task` model file.
@@ -143,7 +145,7 @@ You also need the MediaPipe `hand_landmarker.task` model file.
 
 Make sure port `5000` is available and that your webcam is accessible.
 
-**Note:** The application currently uses the Windows Python `py` launcher, so the execution code may need modification on Linux or macOS.
+**Note:** The application automatically detects your available Python launcher (`py`, `python3`, or `python`) across Windows, Linux, and macOS.
 
 ## Dataset
 
@@ -158,11 +160,9 @@ The repository contains the extracted landmark data, training scripts, and expor
 Some areas I would like to explore:
 
 - Collecting additional training samples using a personal webcam, especially for letters that currently perform poorly.
-- Adding finger-angle and inter-landmark distance features.
 - Supporting motion-based letters such as J and Z.
 - Extending recognition to numbers, common symbols and frequently used words.
 - Improving classification between visually similar hand shapes.
-- Adding cross-platform support for Windows, Linux and macOS.
 - Testing with a wider range of users, cameras and lighting conditions.
 
 ## Acknowledgements
